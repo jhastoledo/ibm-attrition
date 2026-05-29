@@ -1,110 +1,102 @@
 import streamlit as st
+import pandas as pd
 import sys
 from pathlib import Path
-
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from utils import GITHUB_DARK_CSS, FIG_DIR
 
-st.set_page_config(page_title="SHAP — IBM Attrition", page_icon="🔍", layout="wide")
 st.markdown(GITHUB_DARK_CSS, unsafe_allow_html=True)
 
 st.markdown("## 🔍 Interpretabilidade — SHAP")
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown("<hr style='border-color:#30363d;'>", unsafe_allow_html=True)
 
-# ── Seção 1: O que é SHAP ─────────────────────────────────────
-st.markdown("### O que é SHAP?")
 st.markdown("""
-<p style='color:#8b949e'>
+<p style='color:#8b949e;'>
 SHAP (SHapley Additive exPlanations) quantifica a contribuição de cada feature
-para a predição de cada instância. Baseado na teoria dos jogos cooperativos,
-garante propriedades matemáticas de <b>consistência</b> e <b>completude</b>.
+para cada predição individual. Modelo: <b style='color:#e6edf3;'>
+LinearExplainer</b> — adequado para Logistic Regression.
 </p>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
-col1.markdown("""
-**Interpretação dos valores:**
-- **Valor positivo** → feature aumenta a probabilidade de attrition
-- **Valor negativo** → feature reduz a probabilidade de attrition
-- **|valor| maior** → maior impacto na predição
-""")
-col2.markdown("""
-**Cores no Summary Plot:**
-- 🔴 **Rosa/Vermelho** → valor alto da feature
-- 🔵 **Azul** → valor baixo da feature
-""")
-
-# ── Seção 2: Summary Plot Global ─────────────────────────────
-st.markdown("### Importância Global das Features")
-st.markdown("<p style='color:#8b949e'>Top features ordenadas por impacto médio absoluto no modelo.</p>",
-            unsafe_allow_html=True)
+# ── Summary ───────────────────────────────────────────────────
+st.markdown("### SHAP Summary Plot")
+st.markdown("""
+<p style='color:#8b949e;'>
+OverTime (0.588) é o preditor #1 — consistente com a análise descritiva do NB01.
+BusinessTravel_Frequently (0.486) em segundo — viagens frequentes aumentam risco.
+YearsPerCompany (0.387) é uma <b style='color:#e6edf3;'>feature derivada criada no NB02</b>.
+</p>
+""", unsafe_allow_html=True)
 fig_path = FIG_DIR / 'nb05_shap_summary.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-# ── Seção 3: Top insights ─────────────────────────────────────
-st.markdown("### Top 5 Insights do SHAP")
-col1, col2 = st.columns(2)
+# ── Ranking ───────────────────────────────────────────────────
+st.markdown("### Top 10 Features — |SHAP| Médio")
+shap_data = pd.DataFrame({
+    'Feature': [
+        'OverTime', 'BusinessTravel_Frequently',
+        'YearsPerCompany', 'JobSatisfaction',
+        'EnvironmentSatisfaction', 'Dept_R&D',
+        'MaritalStatus_Single', 'DistanceFromHome',
+        'BusinessTravel_Rarely', 'TotalWorkingYears',
+    ],
+    'SHAP_mean': [
+        0.588, 0.486, 0.387, 0.380,
+        0.378, 0.377, 0.356, 0.317,
+        0.308, 0.288,
+    ],
+    'Tipo': [
+        'Ordinal', 'OHE', 'Derivada', 'Passthrough',
+        'Passthrough', 'OHE', 'OHE', 'Standard',
+        'OHE', 'Standard',
+    ],
+    'Ação de RH': [
+        'Limitar horas extras',
+        'Reduzir viagens frequentes',
+        'Monitorar histórico de instabilidade',
+        'Pesquisas de clima individuais',
+        'Melhorar condições do ambiente físico',
+        'Atenção ao departamento R&D',
+        'Programas de integração social',
+        'Home office ou vale-transporte',
+        'Política de viagens moderadas',
+        'Mentoria para veteranos',
+    ],
+})
 
-with col1:
-    st.markdown("""
-**1. OverTime (SHAP=0.681)**
-Hora extra é o maior fator de risco.
-Funcionários com OT têm ~3x mais chance de sair.
+for _, row in shap_data.iterrows():
+    cor = {'Ordinal': '#58a6ff', 'OHE': '#3fb950',
+           'Derivada': '#d2a8ff', 'Passthrough': '#ffa657',
+           'Standard': '#79c0ff'}.get(row['Tipo'], '#8b949e')
+    pct = row['SHAP_mean'] / 0.588 * 100
+    with st.expander(
+        f"**{row['Feature']}** — SHAP: {row['SHAP_mean']:.3f} | {row['Tipo']}"
+    ):
+        st.markdown(f"<p style='color:#8b949e;'>💡 {row['Ação de RH']}</p>",
+                    unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background:#0d1117;border-radius:6px;
+                    height:8px;overflow:hidden;">
+            <div style="background:{cor};width:{pct:.0f}%;
+                        height:100%;border-radius:6px;"></div>
+        </div>
+        """, unsafe_allow_html=True)
 
-**2. YearsPerCompany (SHAP=0.454)**
-Feature derivada — quem muda muito de empresa
-tende a sair novamente. Instabilidade histórica.
-
-**3. StockOptionLevel (SHAP=0.414)**
-Sem stock options → menos vínculo financeiro.
-Nível 0 é forte preditor de saída.
-""")
-with col2:
-    st.markdown("""
-**4. EnvironmentSatisfaction (SHAP=0.310)**
-Insatisfação com o ambiente é sinal de alerta precoce
-e acionável pelo RH antes da saída.
-
-**5. MonthlyIncome (SHAP=0.267)**
-Salário baixo aumenta risco — especialmente
-em Sales e Human Resources.
-""")
-
-# ── Seção 4: Waterfall ────────────────────────────────────────
-st.markdown("### Explicação Individual — Waterfall Plot")
-st.markdown("<p style='color:#8b949e'>Comparação entre um caso detectado (True Positive) e um não detectado (False Negative).</p>",
-            unsafe_allow_html=True)
+# ── Waterfall ─────────────────────────────────────────────────
+st.markdown("### SHAP Waterfall — Verdadeiro Positivo vs Falso Positivo")
+st.markdown("""
+<p style='color:#8b949e;'>
+<b style='color:#3fb950;'>TP:</b> P=0.984 — funcionário que realmente saiu, corretamente identificado.<br>
+<b style='color:#ff7b72;'>FP:</b> P=0.954 — alarme falso — conversa de retenção desnecessária.
+</p>
+""", unsafe_allow_html=True)
 fig_path = FIG_DIR / 'nb05_shap_waterfall.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-# ── Seção 5: Avaliação ────────────────────────────────────────
-st.markdown("### Avaliação Final no Conjunto de Teste")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("ROC-AUC",  "0.784")
-col2.metric("PR-AUC",   "0.534")
-col3.metric("Recall",   "0.510",  delta="+0.21 vs baseline")
-col4.metric("F1",       "0.530",  delta="+0.09 vs baseline")
-
-fig_path = FIG_DIR / 'nb05_confusion_matrix.png'
-if fig_path.exists():
-    col_img, col_text = st.columns([1, 1])
-    col_img.image(str(fig_path), width=400)
-    with col_text:
-        st.markdown("""
-**Leitura da matriz (threshold=0.35):**
-
-- **0.92** dos funcionários que ficaram → corretamente classificados
-- **0.51** dos funcionários que saíram → detectados pelo modelo
-- **0.49** dos casos reais → ainda não detectados (False Negatives)
-
-O threshold 0.35 foi escolhido para maximizar o F1,
-priorizando o Recall em detrimento da Precision —
-correto para o contexto de RH onde perder um caso
-real é mais custoso que um falso alarme.
-""")
-
-fig_path = FIG_DIR / 'nb05_threshold.png'
+# ── Dependence ────────────────────────────────────────────────
+st.markdown("### SHAP Dependence Plots")
+fig_path = FIG_DIR / 'nb05_shap_dependence.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)

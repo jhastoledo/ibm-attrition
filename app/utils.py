@@ -10,7 +10,11 @@ DATA_DIR   = ROOT / "data" / "processed"
 FIG_DIR    = ROOT / "reports" / "figures"
 REPORTS    = ROOT / "reports"
 
+TARGET    = "Attrition"
 THRESHOLD = 0.35
+
+PALETTE = ['#58a6ff', '#ff7b72', '#3fb950', '#d2a8ff',
+           '#ffa657', '#79c0ff', '#ffa198']
 
 GITHUB_DARK_CSS = """
 <style>
@@ -43,10 +47,7 @@ def carregar_pipeline():
 
 @st.cache_data
 def carregar_features():
-    return pd.read_parquet(DATA_DIR / "features.parquet")
-
-@st.cache_data
-def carregar_dados_raw():
+    """Dataset processado — target já convertido para 0/1."""
     return pd.read_parquet(DATA_DIR / "features.parquet")
 
 @st.cache_data

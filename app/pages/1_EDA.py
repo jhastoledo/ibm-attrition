@@ -2,107 +2,110 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import mannwhitneyu, chi2_contingency
+from scipy.stats import pointbiserialr, mannwhitneyu, chi2_contingency
 import sys
 from pathlib import Path
-
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from utils import (GITHUB_DARK_CSS, THRESHOLD,
-                   carregar_pipeline, carregar_features,
-                   carregar_comparativo)
+from utils import GITHUB_DARK_CSS, FIG_DIR, carregar_features, PALETTE
 
-st.set_page_config(page_title="EDA — IBM Attrition", page_icon="📊", layout="wide")
 st.markdown(GITHUB_DARK_CSS, unsafe_allow_html=True)
 
-# ── Estilo matplotlib ─────────────────────────────────────────
 plt.rcParams.update({
     'figure.facecolor': '#0d1117', 'axes.facecolor': '#161b22',
-    'axes.edgecolor': '#30363d',   'axes.labelcolor': '#e6edf3',
-    'xtick.color': '#8b949e',      'ytick.color': '#8b949e',
-    'text.color': '#e6edf3',       'grid.color': '#21262d',
-    'grid.linewidth': 0.6,         'font.family': 'monospace',
+    'axes.edgecolor': '#30363d', 'axes.labelcolor': '#e6edf3',
+    'xtick.color': '#8b949e', 'ytick.color': '#8b949e',
+    'text.color': '#e6edf3', 'grid.color': '#21262d',
+    'grid.linewidth': 0.6, 'font.family': 'monospace',
 })
-PALETTE = ['#58a6ff', '#ff7b72', '#3fb950', '#d2a8ff', '#ffa657']
 
-# ── Header ────────────────────────────────────────────────────
 st.markdown("## 📊 Análise Exploratória de Dados")
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown("<hr style='border-color:#30363d;'>", unsafe_allow_html=True)
 
-df = carregar_features()
+# ── Carregar dados processados (target já = 0/1) ──────────────
+df     = carregar_features()
 TARGET = 'Attrition'
 
-# ── Seção 1: Visão Geral ──────────────────────────────────────
+# ── Métricas ──────────────────────────────────────────────────
 st.markdown("### Visão Geral do Dataset")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Funcionários",  f"{df.shape[0]:,}")
-col2.metric("Variáveis",     df.shape[1])
-col3.metric("Saídas (Yes)",  df[TARGET].value_counts()['Yes'])
-col4.metric("Taxa Attrition", f"{(df[TARGET]=='Yes').mean()*100:.1f}%")
+n_at  = int(df[TARGET].sum())
+n_ok  = int((df[TARGET] == 0).sum())
+taxa  = df[TARGET].mean() * 100
 
-st.markdown("<br>", unsafe_allow_html=True)
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("Funcionários",     f"{len(df):,}")
+col2.metric("Attrition (1)",    f"{n_at}")
+col3.metric("Sem Attrition (0)",f"{n_ok}")
+col4.metric("Taxa Attrition",   f"{taxa:.1f}%")
+col5.metric("Desbalanceamento", f"{n_ok/n_at:.1f}:1")
 
-with st.expander("📋 Ver primeiras linhas do dataset"):
-    st.dataframe(df.head(10), use_container_width=True)
-
-# ── Seção 2: Distribuição do Target ───────────────────────────
+# ── Figuras EDA ───────────────────────────────────────────────
 st.markdown("### Distribuição do Target")
 fig_path = FIG_DIR / 'eda_01_target.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-# ── Seção 3: Distribuições Univariadas ────────────────────────
-st.markdown("### Distribuições Univariadas")
+st.markdown("### Distribuições Numéricas por Attrition")
 fig_path = FIG_DIR / 'eda_02_distribuicoes_numericas.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-# ── Seção 4: Bivariada ────────────────────────────────────────
-st.markdown("### Features Numéricas vs Attrition (Mann-Whitney U)")
+st.markdown("### Análise Bivariada — Numéricas")
 fig_path = FIG_DIR / 'eda_03_bivar_numericas.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-st.markdown("### Taxa de Attrition por Variável Categórica (Qui-Quadrado)")
+st.markdown("### Análise Bivariada — Categóricas")
 fig_path = FIG_DIR / 'eda_04_bivar_categoricas.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-# ── Seção 5: Correlação ───────────────────────────────────────
-st.markdown("### Matriz de Correlação")
+st.markdown("### Correlação")
 fig_path = FIG_DIR / 'eda_05_correlacao.png'
 if fig_path.exists():
     st.image(str(fig_path), use_container_width=True)
 
-# ── Seção 6: Explorador interativo ───────────────────────────
+# ── Explorador Interativo ─────────────────────────────────────
 st.markdown("### 🔎 Explorador Interativo")
-st.markdown("<p style='color:#8b949e'>Selecione uma variável numérica para comparar entre os grupos.</p>",
-            unsafe_allow_html=True)
 
-COLS_DROP = ['EmployeeCount', 'Over18', 'StandardHours', 'EmployeeNumber']
-numericas = df.select_dtypes(include='number').drop(columns=COLS_DROP, errors='ignore').columns.tolist()
+# Features numéricas disponíveis no parquet
+COLS_NUM = [c for c in [
+    'Age', 'MonthlyIncome', 'TotalWorkingYears',
+    'YearsAtCompany', 'DistanceFromHome',
+    'YearsPerCompany', 'IncomePerYear',
+    'NumCompaniesWorked', 'YearsSinceLastPromotion',
+] if c in df.columns]
 
-col_sel = st.selectbox("Variável", numericas, index=numericas.index('MonthlyIncome'))
+col_x = st.selectbox("Feature X", COLS_NUM, index=0)
 
-grupo_no  = df.loc[df[TARGET] == 'No',  col_sel]
-grupo_yes = df.loc[df[TARGET] == 'Yes', col_sel]
-stat, p   = mannwhitneyu(grupo_no, grupo_yes, alternative='two-sided')
-sig = '*** p<0.001' if p < 0.001 else ('** p<0.01' if p < 0.01 else ('* p<0.05' if p < 0.05 else 'ns'))
+if col_x in df.columns:
+    g0 = df.loc[df[TARGET] == 0, col_x].dropna()
+    g1 = df.loc[df[TARGET] == 1, col_x].dropna()
+    _, p = mannwhitneyu(g0, g1, alternative='two-sided')
+    sig  = '***' if p < 0.001 else ('**' if p < 0.01
+           else ('*' if p < 0.05 else 'ns'))
+    r, _ = pointbiserialr(df[TARGET], df[col_x].fillna(df[col_x].median()))
 
-fig, ax = plt.subplots(figsize=(8, 4))
-for j, (grupo, dados, cor) in enumerate(zip(['No','Yes'], [grupo_no, grupo_yes], [PALETTE[0], PALETTE[1]])):
-    ax.boxplot(dados, positions=[j], widths=0.5, patch_artist=True,
-               boxprops=dict(facecolor=cor, alpha=0.7),
-               medianprops=dict(color='#e6edf3', linewidth=2),
-               whiskerprops=dict(color='#8b949e'),
-               capprops=dict(color='#8b949e'),
-               flierprops=dict(marker='o', color=cor, alpha=0.3, markersize=3))
-ax.set_xticks([0, 1]); ax.set_xticklabels(['No', 'Yes'])
-ax.set_title(f'{col_sel}  —  Mann-Whitney U: {sig}', color='#e6edf3')
-st.pyplot(fig, use_container_width=True)
-plt.close()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.hist(g0, bins=35, alpha=0.6, color=PALETTE[1],
+            label=f'Sem Attrition (n={len(g0)})', density=True)
+    ax.hist(g1, bins=35, alpha=0.6, color=PALETTE[2],
+            label=f'Attrition (n={len(g1)})', density=True)
+    ax.axvline(g0.median(), color=PALETTE[1],
+               linestyle='--', linewidth=1.5,
+               label=f'Med: {g0.median():.1f}')
+    ax.axvline(g1.median(), color=PALETTE[2],
+               linestyle='--', linewidth=1.5,
+               label=f'Med: {g1.median():.1f}')
+    ax.set_title(f'{col_x} vs Attrition — '
+                 f'MW {sig} (p={p:.2e}) | r={r:.3f}',
+                 color='#e6edf3')
+    ax.set_xlabel(col_x)
+    ax.legend(fontsize=8)
+    st.pyplot(fig, use_container_width=True)
+    plt.close()
 
-col_m1, col_m2, col_m3 = st.columns(3)
-col_m1.metric(f"Mediana (No)",  f"{grupo_no.median():.1f}")
-col_m2.metric(f"Mediana (Yes)", f"{grupo_yes.median():.1f}")
-col_m3.metric("p-value",        f"{p:.4f}  {sig}")
+    c1, c2, c3 = st.columns(3)
+    c1.metric(f"Mediana — Sem Attrition", f"{g0.median():.2f}")
+    c2.metric(f"Mediana — Attrition",     f"{g1.median():.2f}")
+    c3.metric(f"Diferença",
+              f"{((g1.median()-g0.median())/g0.median()*100):+.1f}%")
