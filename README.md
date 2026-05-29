@@ -12,7 +12,7 @@
 > em dados de RH da IBM — com **ImbPipeline + RandomUnderSampler**,
 > dois ColumnTransformers especializados e interpretabilidade via SHAP.
 
-🔗 **[Acessar App no Streamlit Cloud](https://YOUR-APP-LINK-HERE)**
+🔗 **[Acessar App no Streamlit Cloud](https://ibm-attrition-mzpihkegk29fxsnoa7w6hn.streamlit.app/)**
 
 ---
 
