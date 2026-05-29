@@ -8,7 +8,9 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from utils import GITHUB_DARK_CSS, FIG_DIR, carregar_dados_raw
+from utils import (GITHUB_DARK_CSS, THRESHOLD,
+                   carregar_pipeline, carregar_features,
+                   carregar_comparativo)
 
 st.set_page_config(page_title="EDA — IBM Attrition", page_icon="📊", layout="wide")
 st.markdown(GITHUB_DARK_CSS, unsafe_allow_html=True)
