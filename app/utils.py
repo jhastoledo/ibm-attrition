@@ -47,7 +47,7 @@ def carregar_features():
 
 @st.cache_data
 def carregar_dados_raw():
-    return pd.read_csv(ROOT / "data" / "raw" / "employee_attrition.csv")
+    return pd.read_parquet(DATA_DIR / "features.parquet")
 
 @st.cache_data
 def carregar_comparativo():

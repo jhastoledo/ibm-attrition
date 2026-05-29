@@ -27,7 +27,7 @@ PALETTE = ['#58a6ff', '#ff7b72', '#3fb950', '#d2a8ff', '#ffa657']
 st.markdown("## 📊 Análise Exploratória de Dados")
 st.markdown("<hr>", unsafe_allow_html=True)
 
-df = carregar_dados_raw()
+df = carregar_features()
 TARGET = 'Attrition'
 
 # ── Seção 1: Visão Geral ──────────────────────────────────────
